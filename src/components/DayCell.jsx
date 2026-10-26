@@ -5,10 +5,10 @@ export default function DayCell({ date, selected, disabled, isToday, title, onSe
   const key = dateKey(date);
 
   const stateClasses = selected
-    ? "bg-gold border-gold text-[#20180A]"
+    ? "bg-gold text-[#1B1405] font-semibold"
     : disabled
-    ? "bg-transparent border-transparent text-[#4C594F] opacity-55 line-through cursor-not-allowed"
-    : "bg-surface2 border-transparent text-ink cursor-pointer";
+    ? "text-[#566A5D] cursor-not-allowed"
+    : "bg-surface2 text-ink cursor-pointer hover:bg-edge";
 
   return (
     <button
@@ -18,13 +18,15 @@ export default function DayCell({ date, selected, disabled, isToday, title, onSe
       aria-pressed={selected}
       disabled={disabled}
       onClick={() => onSelect(key)}
-      className={`relative aspect-square rounded-md text-[13px] font-mono border
+      className={`relative mx-auto aspect-square w-full max-w-10 rounded-full text-sm tabular-nums transition-colors
         focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold
         ${stateClasses}`}
     >
       {date.getDate()}
-      {isToday && !selected && (
-        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gold" />
+      {isToday && (
+        <span
+          className={`absolute bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${selected ? "bg-[#1B1405]" : "bg-gold"}`}
+        />
       )}
     </button>
   );

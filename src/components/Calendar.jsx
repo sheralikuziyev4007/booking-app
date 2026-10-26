@@ -1,5 +1,7 @@
 import DayCell from "./DayCell";
 import Button from "./ui/Button";
+import Icon from "./ui/Icon";
+import StepHeading from "./ui/StepHeading";
 import { WEEKDAYS, MONTHS, dateKey, sameDay, isClosed, isPastSlot } from "../utils/dateHelpers";
 import { ALL_SLOTS } from "../utils/generateTimeSlots";
 
@@ -20,77 +22,85 @@ export default function Calendar({ month, onMonthChange, selectedDate, onSelect,
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <Button
-          variant="icon"
-          size="icon"
-          aria-label="Предыдущий месяц"
-          disabled={!canGoBack}
-          onClick={() => onMonthChange(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-        >
-          ‹
-        </Button>
-        <span className="font-display text-lg text-ink">
-          {MONTHS[month.getMonth()]} {month.getFullYear()}
-        </span>
-        <Button
-          variant="icon"
-          size="icon"
-          aria-label="Следующий месяц"
-          onClick={() => onMonthChange(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-        >
-          ›
-        </Button>
+      <StepHeading title="Выберите день" hint="Понедельник — выходной, эти даты недоступны." />
+
+      <div className="rounded-2xl border border-edge bg-surface p-3 sm:p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <Button
+            variant="icon"
+            size="icon"
+            aria-label="Предыдущий месяц"
+            disabled={!canGoBack}
+            onClick={() => onMonthChange(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+          >
+            <Icon name="chevronLeft" />
+          </Button>
+          <span className="font-display text-2xl font-semibold text-ink">
+            {MONTHS[month.getMonth()]} {month.getFullYear()}
+          </span>
+          <Button
+            variant="icon"
+            size="icon"
+            aria-label="Следующий месяц"
+            onClick={() => onMonthChange(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+          >
+            <Icon name="chevronRight" />
+          </Button>
+        </div>
+
+        <div className="mb-1 grid grid-cols-7 gap-1">
+          {WEEKDAYS.map((w) => (
+            <div key={w} className="py-0.5 text-center text-xs font-medium text-muted">
+              {w}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((d, i) => {
+            if (!d) return <div key={i} />;
+            const key = dateKey(d);
+            const isToday = sameDay(d, today);
+            const past = d < today;
+            const closed = isClosed(d);
+            const occupied = occupancyMap[key] || [];
+            const fullyBooked = !closed && !past && occupied.length >= ALL_SLOTS.length;
+            // Сегодня, но все слоты уже прошли (например, после 22:00)
+            const dayOver = isToday && ALL_SLOTS.every((t) => isPastSlot(key, t, now));
+            const disabled = past || closed || fullyBooked || dayOver;
+
+            let title = "";
+            if (closed) title = "Понедельник — выходной день";
+            else if (fullyBooked) title = "Все места на эту дату заняты";
+            else if (dayOver) title = "На сегодня время бронирования закончилось";
+            else if (past) title = "Дата уже прошла";
+
+            return (
+              <DayCell
+                key={i}
+                date={d}
+                title={title}
+                disabled={disabled}
+                isToday={isToday}
+                selected={selectedDate === key}
+                onSelect={onSelect}
+              />
+            );
+          })}
+        </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-1.5">
-        {WEEKDAYS.map((w) => (
-          <div key={w} className="text-center text-[11px] text-muted py-1">
-            {w}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((d, i) => {
-          if (!d) return <div key={i} />;
-          const key = dateKey(d);
-          const isToday = sameDay(d, today);
-          const past = d < today;
-          const closed = isClosed(d);
-          const occupied = occupancyMap[key] || [];
-          const fullyBooked = !closed && !past && occupied.length >= ALL_SLOTS.length;
-          // Сегодня, но все слоты уже прошли (например, после 22:00)
-          const dayOver = isToday && ALL_SLOTS.every((t) => isPastSlot(key, t, now));
-          const disabled = past || closed || fullyBooked || dayOver;
-
-          let title = "";
-          if (closed) title = "Понедельник — выходной день";
-          else if (fullyBooked) title = "Все места на эту дату заняты";
-          else if (dayOver) title = "На сегодня время бронирования закончилось";
-          else if (past) title = "Дата уже прошла";
-
-          return (
-            <DayCell
-              key={i}
-              date={d}
-              title={title}
-              disabled={disabled}
-              isToday={isToday}
-              selected={selectedDate === key}
-              onSelect={onSelect}
-            />
-          );
-        })}
-      </div>
-
-      <div className="flex gap-4 mt-3.5 text-[11px] text-muted">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-[3px] bg-surface2" />
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted">
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full bg-surface2 ring-1 ring-edge" />
           доступно
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-[3px] border border-edge" />
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full bg-gold" />
+          выбрано
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full border border-dashed border-[#566A5D]" />
           закрыто / занято
         </div>
       </div>

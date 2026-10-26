@@ -1,31 +1,35 @@
+import Icon from "./ui/Icon";
+
 const STEPS = ["Дата", "Время", "Данные", "Проверка"];
 
+// Индикатор шагов. На телефоне подпись показана только у текущего шага, чтобы всё помещалось в строку.
 export default function Stepper({ step }) {
   return (
-    <div className="flex items-center mb-8">
+    <ol className="m-0 mb-4 flex list-none items-center p-0" aria-label="Шаги бронирования">
       {STEPS.map((label, i) => {
         const n = i + 1;
         const active = n === step;
         const done = n < step;
+        const last = i === STEPS.length - 1;
         return (
-          <div key={label} className={`flex items-center ${i < STEPS.length - 1 ? "flex-1" : ""}`}>
-            <div className="flex flex-col items-center gap-1.5">
-              <div
-                className={`w-[30px] h-[30px] rounded-full flex items-center justify-center font-mono text-xs border transition-all
-                  ${active ? "bg-gold border-gold text-[#20180A]" : done ? "border-gold text-gold" : "border-edge text-muted"}`}
+          <li key={label} aria-current={active ? "step" : undefined} className={`flex items-center ${last ? "" : "flex-1"}`}>
+            <span className="flex items-center gap-2.5">
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-full border text-[13px] font-medium tabular-nums transition-colors
+                  ${active ? "border-gold bg-gold text-[#1B1405]" : done ? "border-gold text-gold" : "border-edge text-muted"}`}
               >
-                {done ? "✓" : String(n).padStart(2, "0")}
-              </div>
-              <span className={`text-[11px] tracking-wide whitespace-nowrap ${active ? "text-gold" : "text-muted"}`}>
+                {done ? <Icon name="check" size={15} /> : n}
+              </span>
+              <span
+                className={`whitespace-nowrap text-[13px] ${active ? "font-medium text-ink" : "hidden text-muted sm:inline"}`}
+              >
                 {label}
               </span>
-            </div>
-            {i < STEPS.length - 1 && (
-              <div className={`flex-1 h-px mx-2 mb-[18px] ${done ? "bg-gold" : "bg-edge"}`} />
-            )}
-          </div>
+            </span>
+            {!last && <span className={`mx-3 h-px flex-1 transition-colors ${done ? "bg-gold" : "bg-edge"}`} />}
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }

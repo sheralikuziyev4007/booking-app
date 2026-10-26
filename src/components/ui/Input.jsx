@@ -7,8 +7,9 @@ export default function Input({ as: Tag = "input", id, error, className = "", ..
       id={id}
       aria-invalid={error ? true : undefined}
       aria-describedby={error && id ? `${id}-error` : undefined}
-      className={`w-full bg-surface2 border rounded-md px-3 py-2.5 text-sm text-ink outline-none font-body box-border
-        focus:border-gold ${error ? "border-danger" : "border-edge"} ${className}`}
+      className={`box-border w-full rounded-xl border bg-surface2 px-4 py-2 font-body text-base text-ink outline-none
+        transition-colors placeholder:text-muted/55 focus:border-gold focus:ring-1 focus:ring-gold/40 sm:text-[15px]
+        ${error ? "border-danger" : "border-edge"} ${className}`}
       {...props}
     />
   );

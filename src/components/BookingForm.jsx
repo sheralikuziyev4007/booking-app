@@ -2,7 +2,10 @@ import { useId } from "react";
 import Field from "./ui/Field";
 import Input from "./ui/Input";
 import Button from "./ui/Button";
+import Icon from "./ui/Icon";
+import StepHeading from "./ui/StepHeading";
 import { guestsWord } from "../utils/plural";
+import { formatPhone } from "../utils/formatPhone";
 
 export default function BookingForm({ formData, setFormData, errors }) {
   const uid = useId();
@@ -11,7 +14,7 @@ export default function BookingForm({ formData, setFormData, errors }) {
 
   return (
     <div>
-      <p className="font-display text-[17px] text-ink mb-4">Ваши данные</p>
+      <StepHeading title="Ваши данные" hint="Контакты нужны, чтобы подтвердить бронь." />
 
       <Field label="Имя" htmlFor={id("name")} error={errors.name}>
         <Input
@@ -24,16 +27,17 @@ export default function BookingForm({ formData, setFormData, errors }) {
         />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-x-3 sm:grid-cols-2">
         <Field label="Телефон" htmlFor={id("phone")} error={errors.phone}>
           <Input
             id={id("phone")}
             type="tel"
+            inputMode="tel"
             error={errors.phone}
             value={formData.phone}
             placeholder="+998 90 123 45 67"
             autoComplete="tel"
-            onChange={(e) => upd("phone", e.target.value)}
+            onChange={(e) => upd("phone", formatPhone(e.target.value))}
           />
         </Field>
         <Field label="Email" htmlFor={id("email")} error={errors.email}>
@@ -50,16 +54,16 @@ export default function BookingForm({ formData, setFormData, errors }) {
       </div>
 
       <Field label="Количество гостей" htmlFor={id("guests")}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <Button
             variant="iconFilled"
             size="icon"
             aria-label="Уменьшить количество гостей"
             onClick={() => upd("guests", Math.max(1, formData.guests - 1))}
           >
-            −
+            <Icon name="minus" />
           </Button>
-          <output id={id("guests")} className="font-mono text-[15px] w-6 text-center">
+          <output id={id("guests")} className="w-9 text-center font-display text-4xl font-semibold leading-none tabular-nums">
             {formData.guests}
           </output>
           <Button
@@ -68,9 +72,9 @@ export default function BookingForm({ formData, setFormData, errors }) {
             aria-label="Увеличить количество гостей"
             onClick={() => upd("guests", Math.min(10, formData.guests + 1))}
           >
-            +
+            <Icon name="plus" />
           </Button>
-          <span className="text-xs text-muted">{guestsWord(formData.guests)} (макс. 10)</span>
+          <span className="text-[13px] text-muted">{guestsWord(formData.guests)} (макс. 10)</span>
         </div>
       </Field>
 
@@ -78,7 +82,7 @@ export default function BookingForm({ formData, setFormData, errors }) {
         <Input
           as="textarea"
           id={id("comment")}
-          className="resize-y min-h-[60px]"
+          className="min-h-[56px] resize-y"
           value={formData.comment}
           placeholder="Пожелания к столику, аллергии и т.д."
           onChange={(e) => upd("comment", e.target.value)}

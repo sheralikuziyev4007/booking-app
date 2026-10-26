@@ -1,9 +1,10 @@
 import Button from "./ui/Button";
+import Icon from "./ui/Icon";
 
 // Нижняя панель шагов 1–4: «Назад» / «Далее» / «Подтвердить бронирование».
 export default function StepNavigation({ step, nextDisabled, onBack, onNext, onConfirm }) {
   return (
-    <div className="flex justify-between mt-6 border-t border-edge pt-[18px]">
+    <div className="mt-3 flex items-center justify-between border-t border-edge pt-3">
       <Button
         variant="secondary"
         onClick={onBack}
@@ -17,7 +18,10 @@ export default function StepNavigation({ step, nextDisabled, onBack, onNext, onC
           Далее
         </Button>
       ) : (
-        <Button onClick={onConfirm}>Подтвердить бронирование</Button>
+        <Button onClick={onConfirm}>
+          <Icon name="check" size={16} />
+          Подтвердить бронирование
+        </Button>
       )}
     </div>
   );

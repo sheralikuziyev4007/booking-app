@@ -2,16 +2,13 @@ import Button from "./ui/Button";
 
 export default function Header({ showBookingsButton, onOpenBookings }) {
   return (
-    <div className="flex justify-between items-end mb-6">
-      <div>
-        <p className="font-display text-2xl font-bold text-gold m-0">Ресторан «Атлас»</p>
-        <p className="text-xs text-muted mt-0.5">Бронирование столика</p>
-      </div>
+    <header className="mb-3 flex min-h-[38px] items-center justify-between gap-4">
+      <p className="m-0 text-sm text-muted">Бронирование столика</p>
       {showBookingsButton && (
         <Button variant="secondary" size="sm" onClick={onOpenBookings}>
           Мои брони
         </Button>
       )}
-    </div>
+    </header>
   );
 }

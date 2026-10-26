@@ -2,7 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: "Inter", sans-serif;
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    background: #0e1813;
+    color: #f4eedb;
+    font-family: "Onest Variable", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: #e3ae3c;
+    color: #1b1405;
+  }
+}
+
+@layer components {
+  /* У Cormorant цифры по умолчанию «старого стиля» — для дат и номеров нужны ровные */
+  .font-display {
+    font-variant-numeric: lining-nums;
+  }
+
+  /* Кромка ткани: цветная полоса в цветах икатной палитры */
+  .selvedge-x {
+    background: repeating-linear-gradient(
+      90deg,
+      #e3ae3c 0 14px,
+      #b83a52 14px 28px,
+      #2f9a98 28px 42px,
+      #f4eedb 42px 48px
+    );
+  }
+  .selvedge-y {
+    background: repeating-linear-gradient(
+      180deg,
+      #e3ae3c 0 14px,
+      #b83a52 14px 28px,
+      #2f9a98 28px 42px,
+      #f4eedb 42px 48px
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

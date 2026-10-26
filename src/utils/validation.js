@@ -1,6 +1,6 @@
 // Валидация полей формы бронирования
+import { isCompletePhone } from "./formatPhone";
 
-export const PHONE_RE = /^[+]?[0-9\s().-]{9,17}$/;
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateBookingForm(formData) {
@@ -9,7 +9,7 @@ export function validateBookingForm(formData) {
   if (!formData.name.trim() || formData.name.trim().length < 2) {
     errors.name = "Введите имя (минимум 2 символа).";
   }
-  if (!PHONE_RE.test(formData.phone.trim())) {
+  if (!isCompletePhone(formData.phone)) {
     errors.phone = "Введите корректный номер телефона.";
   }
   if (!EMAIL_RE.test(formData.email.trim())) {
