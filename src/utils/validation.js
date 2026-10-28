@@ -1,23 +1,16 @@
-// Валидация полей формы бронирования
-import { isCompletePhone } from "./formatPhone";
+// Booking form validation. Returns error codes; components translate them via t(`errors.${code}`).
+import { isValidPhone } from "./formatPhone";
+import { RESTAURANT } from "../config/restaurant";
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateBookingForm(formData) {
   const errors = {};
 
-  if (!formData.name.trim() || formData.name.trim().length < 2) {
-    errors.name = "Введите имя (минимум 2 символа).";
-  }
-  if (!isCompletePhone(formData.phone)) {
-    errors.phone = "Введите корректный номер телефона.";
-  }
-  if (!EMAIL_RE.test(formData.email.trim())) {
-    errors.email = "Введите корректный email.";
-  }
-  if (formData.guests < 1 || formData.guests > 10) {
-    errors.guests = "Количество гостей должно быть от 1 до 10.";
-  }
+  if (formData.name.trim().length < 2) errors.name = "nameShort";
+  if (!isValidPhone(formData.phone)) errors.phone = "phoneInvalid";
+  if (!EMAIL_RE.test(formData.email.trim())) errors.email = "emailInvalid";
+  if (formData.guests < RESTAURANT.minGuests || formData.guests > RESTAURANT.maxGuests) errors.guests = "guestsRange";
 
   return errors;
 }

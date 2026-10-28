@@ -1,4 +1,4 @@
-// Набор линейных иконок проекта. Иконки декоративные: смысл всегда передаёт текст или aria-label у кнопки.
+// Line icon set. Icons are decorative: meaning always comes from text or the button's aria-label.
 
 const PATHS = {
   chevronLeft: <path d="m15 18-6-6 6-6" />,

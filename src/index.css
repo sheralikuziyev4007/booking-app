@@ -23,12 +23,14 @@
 }
 
 @layer components {
-  /* У Cormorant цифры по умолчанию «старого стиля» — для дат и номеров нужны ровные */
+  /* Cormorant uses old-style figures by default; dates and numbers need lining ones.
+     The variable keeps lining figures even when Tailwind's tabular-nums is also applied. */
   .font-display {
+    --tw-numeric-figure: lining-nums;
     font-variant-numeric: lining-nums;
   }
 
-  /* Кромка ткани: цветная полоса в цветах икатной палитры */
+  /* Fabric selvedge: striped edge in the ikat palette */
   .selvedge-x {
     background: repeating-linear-gradient(
       90deg,

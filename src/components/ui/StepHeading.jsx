@@ -1,4 +1,4 @@
-// Заголовок шага: крупный заголовок + короткая подсказка под ним.
+// Step heading: large title + short hint below it.
 
 export default function StepHeading({ title, hint }) {
   return (

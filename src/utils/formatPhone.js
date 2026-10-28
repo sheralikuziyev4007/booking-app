@@ -1,23 +1,31 @@
-// Маска узбекского номера: +998 XX XXX XX XX (9 цифр после кода страны).
-// Лишние символы отбрасываются, ввод длиннее номера обрезается.
+// International phone input: the user types any number with a country code,
+// we format it as they type and validate it against libphonenumber metadata.
+import { AsYouType, isValidPhoneNumber } from "libphonenumber-js/min";
 
-export const PHONE_NATIONAL_LENGTH = 9;
+// E.164 allows at most 15 digits
+const MAX_DIGITS = 15;
 
-// Только национальные цифры (без кода 998), максимум 9
 export function phoneDigits(raw) {
-  let digits = String(raw ?? "").replace(/\D/g, "");
-  if (digits.startsWith("998")) digits = digits.slice(3);
-  return digits.slice(0, PHONE_NATIONAL_LENGTH);
+  return String(raw ?? "").replace(/\D/g, "").slice(0, MAX_DIGITS);
 }
 
+// "998901234567" / "+998 (90) 123-45-67" → "+998 90 123 45 67"
 export function formatPhone(raw) {
-  const d = phoneDigits(raw);
-  if (!d) return "";
-  const parts = [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean);
-  return `+998 ${parts.join(" ")}`;
+  const digits = phoneDigits(raw);
+  if (!digits) return String(raw ?? "").trim().startsWith("+") ? "+" : "";
+  return new AsYouType().input(`+${digits}`);
 }
 
-// Номер введён полностью: все 9 цифр
-export function isCompletePhone(raw) {
-  return phoneDigits(raw).length === PHONE_NATIONAL_LENGTH;
+// onChange helper. Deleting a space or dash would be undone by re-formatting,
+// so when only a formatting character disappeared we remove the digit before it.
+export function nextPhoneValue(prev, raw) {
+  if (raw.length < prev.length && phoneDigits(raw) === phoneDigits(prev)) {
+    return formatPhone(phoneDigits(raw).slice(0, -1));
+  }
+  return formatPhone(raw);
+}
+
+export function isValidPhone(raw) {
+  const digits = phoneDigits(raw);
+  return digits.length > 0 && isValidPhoneNumber(`+${digits}`);
 }

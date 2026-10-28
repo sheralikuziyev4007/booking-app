@@ -1,150 +1,227 @@
-// Интеграционный тест: весь сценарий бронирования в jsdom (время зафиксировано: среда 23.09.2026, 14:00)
+// Integration test: the whole booking flow in jsdom (clock frozen at Wed, Sep 23 2026, 14:00)
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import App from "./App";
+import { I18nProvider } from "./i18n/I18nProvider";
 
+const STORAGE_KEY = "atlas-restaurant-bookings";
 const click = (el) => fireEvent.click(el);
 const btn = (name) => screen.getByRole("button", { name });
+const renderApp = (lang = "en") =>
+  render(
+    <I18nProvider initialLang={lang}>
+      <App />
+    </I18nProvider>
+  );
 
 function setNow(y, mo, d, h, mi) {
   vi.setSystemTime(new Date(y, mo, d, h, mi));
 }
 
+function setGuests(n) {
+  const current = Number(screen.getByRole("status").textContent);
+  const diff = n - current;
+  const name = diff > 0 ? "More guests" : "Fewer guests";
+  for (let i = 0; i < Math.abs(diff); i++) click(btn(name));
+}
+
+async function fillDetails(name = "Alisher") {
+  fireEvent.change(await screen.findByLabelText("Name"), { target: { value: name } });
+  fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "+998901234567" } });
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@mail.com" } });
+}
+
+async function book({ day = "Thursday, September 24", time, guests = 2 }) {
+  click(btn(day));
+  click(btn("Next"));
+  setGuests(guests);
+  click(btn(time));
+  click(btn("Next"));
+  await fillDetails();
+  click(btn("Next"));
+  await screen.findByText("Review your booking");
+  click(btn("Confirm booking"));
+  await screen.findByText("Booking confirmed");
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.useFakeTimers({ toFake: ["Date"] });
-  setNow(2026, 8, 23, 14, 0); // среда 23.09.2026, 14:00
+  setNow(2026, 8, 23, 14, 0); // Wed, Sep 23 2026, 14:00
 });
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
 
-describe("полный сценарий бронирования", () => {
-  it("календарь: понедельник и прошедшие даты заблокированы, сегодня доступно", () => {
-    render(<App />);
-    expect(screen.getByText("Сентябрь 2026")).toBeTruthy();
-    expect(btn("28 сентября, понедельник").disabled).toBe(true); // выходной
-    expect(btn("22 сентября, вторник").disabled).toBe(true); // прошло
-    expect(btn("23 сентября, среда").disabled).toBe(false); // сегодня
-    expect(btn("24 сентября, четверг").disabled).toBe(false);
-    expect(btn("Предыдущий месяц").disabled).toBe(true);
+describe("booking flow", () => {
+  it("calendar: Mondays and past dates are disabled, today is available", () => {
+    renderApp();
+    expect(screen.getByText("September 2026")).toBeTruthy();
+    expect(btn("Monday, September 28").disabled).toBe(true); // day off
+    expect(btn("Tuesday, September 22").disabled).toBe(true); // past
+    expect(btn("Wednesday, September 23").disabled).toBe(false); // today
+    expect(btn("Thursday, September 24").disabled).toBe(false);
+    expect(btn("Previous month").disabled).toBe(true);
   });
 
-  it("сегодня прошедшие слоты недоступны", () => {
-    render(<App />);
-    click(btn("23 сентября, среда"));
-    click(btn("Далее"));
-    expect(btn("12:00").disabled).toBe(true);
-    expect(btn("14:00").disabled).toBe(true);
-    expect(btn("14:30").disabled).toBe(false);
-    expect(btn("22:00").disabled).toBe(false);
+  it("past slots are disabled for today", () => {
+    renderApp();
+    click(btn("Wednesday, September 23"));
+    click(btn("Next"));
+    expect(btn("12:00 PM").disabled).toBe(true);
+    expect(btn("2:00 PM").disabled).toBe(true);
+    expect(btn("2:30 PM").disabled).toBe(false);
+    expect(btn("10:00 PM").disabled).toBe(false);
   });
 
-  it("после 22:00 сегодняшняя дата заблокирована", () => {
+  it("after 22:00 today is disabled", () => {
     setNow(2026, 8, 23, 22, 30);
-    render(<App />);
-    expect(btn("23 сентября, среда").disabled).toBe(true);
-    expect(btn("24 сентября, четверг").disabled).toBe(false);
+    renderApp();
+    expect(btn("Wednesday, September 23").disabled).toBe(true);
+    expect(btn("Thursday, September 24").disabled).toBe(false);
   });
 
-  it("нельзя перейти дальше без даты/времени; форма валидируется", () => {
-    render(<App />);
-    expect(btn("Далее").disabled).toBe(true);
-    click(btn("24 сентября, четверг"));
-    click(btn("Далее"));
-    expect(btn("Далее").disabled).toBe(true);
-    click(btn("18:30"));
-    click(btn("Далее"));
-    // пустая форма → ошибки, остаёмся на шаге 3
-    click(btn("Далее"));
-    expect(screen.getByText("Введите имя (минимум 2 символа).")).toBeTruthy();
-    expect(screen.getByText("Введите корректный номер телефона.")).toBeTruthy();
-    expect(screen.getByText("Введите корректный email.")).toBeTruthy();
-    expect(screen.getByLabelText("Имя").getAttribute("aria-invalid")).toBe("true");
+  it("cannot continue without a date/time; the form is validated", async () => {
+    renderApp();
+    expect(btn("Next").disabled).toBe(true);
+    click(btn("Thursday, September 24"));
+    click(btn("Next"));
+    expect(btn("Next").disabled).toBe(true);
+    click(btn("6:30 PM"));
+    click(btn("Next"));
+    await screen.findByLabelText("Name");
+    click(btn("Next")); // empty form → errors, stay on step 3
+    expect(await screen.findByText("Enter your name (at least 2 characters).")).toBeTruthy();
+    expect(screen.getByText("Enter a valid phone number with country code.")).toBeTruthy();
+    expect(screen.getByText("Enter a valid email address.")).toBeTruthy();
+    expect(screen.getByLabelText("Name").getAttribute("aria-invalid")).toBe("true");
+
+    // typing clears that field's error only
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Al" } });
+    expect(screen.queryByText("Enter your name (at least 2 characters).")).toBeNull();
+    expect(screen.getByText("Enter a valid email address.")).toBeTruthy();
   });
 
-  it("бронь → успех → список (склонение) → отмена → слот снова свободен", () => {
-    render(<App />);
-    click(btn("24 сентября, четверг"));
-    click(btn("Далее"));
-    click(btn("18:30"));
-    click(btn("Далее"));
-
-    fireEvent.change(screen.getByLabelText("Имя"), { target: { value: "Алишер" } });
-    fireEvent.change(screen.getByLabelText("Телефон"), { target: { value: "+998 90 123 45 67" } });
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@mail.com" } });
-    click(btn("Увеличить количество гостей")); // 3
-    expect(screen.getByText(/гостя \(макс\. 10\)/)).toBeTruthy();
-    click(btn("Далее"));
-
-    expect(screen.getByText("24 сентября, четверг")).toBeTruthy(); // родительный падеж
-    click(btn("Подтвердить бронирование"));
-    expect(screen.getByText("Бронь подтверждена")).toBeTruthy();
-    expect(JSON.parse(localStorage.getItem("atlas-restaurant-bookings"))).toHaveLength(1);
-
-    click(btn("Мои брони"));
-    expect(screen.getByText(/3 гостя/)).toBeTruthy();
-    expect(screen.getByText("Предстоящая")).toBeTruthy();
-
-    // слот занят
-    click(btn("+ Новая бронь"));
-    click(btn("24 сентября, четверг"));
-    click(btn("Далее"));
-    expect(btn("18:30").disabled).toBe(true);
-
-    // отмена → слот свободен
-    click(btn("Мои брони"));
-    click(btn("Отменить"));
-    expect(screen.getByText("Отменена")).toBeTruthy();
-    click(btn("+ Новая бронь"));
-    click(btn("24 сентября, четверг"));
-    click(btn("Далее"));
-    expect(btn("18:30").disabled).toBe(false);
+  it("phone input formats international numbers as you type", async () => {
+    renderApp();
+    click(btn("Thursday, September 24"));
+    click(btn("Next"));
+    click(btn("6:30 PM"));
+    click(btn("Next"));
+    const phone = await screen.findByLabelText("Phone");
+    fireEvent.change(phone, { target: { value: "12125550123" } });
+    expect(phone.value).toBe("+1 212 555 0123");
   });
 
-  it("если слот успел пройти, пока заполнялась форма, бронь не создаётся", () => {
-    render(<App />);
-    click(btn("23 сентября, среда"));
-    click(btn("Далее"));
-    click(btn("15:00"));
-    click(btn("Далее"));
-    fireEvent.change(screen.getByLabelText("Имя"), { target: { value: "Алишер" } });
-    fireEvent.change(screen.getByLabelText("Телефон"), { target: { value: "+998 90 123 45 67" } });
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@mail.com" } });
-    click(btn("Далее"));
+  it("booking → success → list → cancel", async () => {
+    renderApp();
+    await book({ time: "6:30 PM", guests: 3 });
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ date: "2026-09-24", time: "18:30", guests: 3, tableSize: 4 });
+    expect(screen.getByText(/^AT-\d{8}-\d{4}$/)).toBeTruthy();
 
-    setNow(2026, 8, 23, 15, 10); // время слота уже прошло
-    click(btn("Подтвердить бронирование"));
+    click(btn("My bookings"));
+    expect(screen.getByText(/6:30 PM · 3 guests/)).toBeTruthy();
+    expect(screen.getByText("Upcoming")).toBeTruthy();
 
-    expect(screen.getByText("Это время уже недоступно. Пожалуйста, выберите другое.")).toBeTruthy();
-    expect(localStorage.getItem("atlas-restaurant-bookings")).toBeNull();
-    expect(btn("15:00").disabled).toBe(true);
+    click(btn("Cancel"));
+    expect(screen.getByText("Cancelled")).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY))[0].status).toBe("cancelled");
   });
 
-  it("повреждённые данные в localStorage не ломают приложение", () => {
-    localStorage.setItem("atlas-restaurant-bookings", JSON.stringify({ broken: true }));
-    render(<App />);
+  it("table capacity: the only 10-seat table blocks overlapping seatings for big parties only", async () => {
+    renderApp();
+    await book({ time: "6:30 PM", guests: 10 });
+
+    click(btn("New booking")); // from the success screen
+    click(btn("Thursday, September 24"));
+    click(btn("Next"));
+    setGuests(10);
+    expect(btn("6:30 PM").disabled).toBe(true);
+    expect(btn("5:00 PM").disabled).toBe(true); // 17:00–19:00 overlaps 18:30
+    expect(btn("4:30 PM").disabled).toBe(false); // ends exactly at 18:30
+    expect(btn("8:30 PM").disabled).toBe(false); // starts when the first seating ends
+
+    setGuests(2);
+    expect(btn("6:30 PM").disabled).toBe(false); // smaller tables are still free
+  });
+
+  it("increasing the party clears a time that no longer fits", async () => {
+    renderApp();
+    await book({ time: "6:30 PM", guests: 10 });
+    click(btn("New booking"));
+    click(btn("Thursday, September 24"));
+    click(btn("Next"));
+    click(btn("6:30 PM"));
+    expect(btn("6:30 PM").getAttribute("aria-pressed")).toBe("true");
+    setGuests(10);
+    expect(btn("6:30 PM").getAttribute("aria-pressed")).toBe("false");
+    expect(btn("Next").disabled).toBe(true);
+  });
+
+  it("no booking is created if the slot passed while the form was filled", async () => {
+    renderApp();
+    click(btn("Wednesday, September 23"));
+    click(btn("Next"));
+    click(btn("3:00 PM"));
+    click(btn("Next"));
+    await fillDetails();
+    click(btn("Next"));
+    await screen.findByText("Review your booking");
+
+    setNow(2026, 8, 23, 15, 10); // the slot has started
+    click(btn("Confirm booking"));
+
+    expect(screen.getByText("This time is no longer available. Please choose another one.")).toBeTruthy();
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(btn("3:00 PM").disabled).toBe(true);
+  });
+
+  it("corrupted localStorage data does not break the app", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ broken: true }));
+    renderApp();
+    expect(screen.getByText("September 2026")).toBeTruthy();
+  });
+
+  it("Back returns to the previous step and keeps the selection", () => {
+    renderApp();
+    click(btn("Thursday, September 24"));
+    click(btn("Next"));
+    click(btn("1:00 PM"));
+    click(btn("Back"));
+    expect(btn("Thursday, September 24").getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("language switch", () => {
+  it("switches the whole UI to Russian and remembers the choice", () => {
+    renderApp("en");
+    click(btn("Русский"));
     expect(screen.getByText("Сентябрь 2026")).toBeTruthy();
-  });
+    expect(btn("Далее")).toBeTruthy();
+    expect(btn("24 сентября, четверг").disabled).toBe(false);
+    expect(document.documentElement.lang).toBe("ru");
+    expect(localStorage.getItem("atlas-lang")).toBe("ru");
 
-  it("кнопка «Назад» возвращает на предыдущий шаг, данные сохраняются", () => {
-    render(<App />);
     click(btn("24 сентября, четверг"));
     click(btn("Далее"));
-    click(btn("13:00"));
-    click(btn("Назад"));
-    expect(btn("24 сентября, четверг").getAttribute("aria-pressed")).toBe("true");
+    expect(btn("18:30")).toBeTruthy(); // 24-hour time in Russian
   });
 
-  it("1 гость → «гость»", () => {
+  it("Russian plural forms in the bookings list", () => {
     localStorage.setItem(
-      "atlas-restaurant-bookings",
-      JSON.stringify([{ id: "1", number: "АТ-1", date: "2026-09-30", time: "12:00", name: "Тест", phone: "", email: "", guests: 1, comment: "", status: "active" }])
+      STORAGE_KEY,
+      JSON.stringify([
+        { id: "1", number: "AT-1", date: "2026-09-30", time: "12:00", name: "Тест", guests: 1, status: "active" },
+        { id: "2", number: "AT-2", date: "2026-09-30", time: "13:00", name: "Тест", guests: 5, status: "active" },
+      ])
     );
-    render(<App />);
+    renderApp("ru");
     click(btn("Мои брони"));
     expect(screen.getByText(/· 1 гость$/)).toBeTruthy();
+    expect(screen.getByText(/· 5 гостей$/)).toBeTruthy();
   });
 });

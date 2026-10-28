@@ -1,7 +1,9 @@
-import { dateKey, formatDateHuman } from "../utils/dateHelpers";
+import { dateKey } from "../utils/dateHelpers";
+import { useI18n } from "../i18n/I18nProvider";
 
-// Одна ячейка календаря. Сама не решает, доступна ли дата, — это делает Calendar.
+// One calendar cell. It does not decide availability itself — Calendar does.
 export default function DayCell({ date, selected, disabled, isToday, title, onSelect }) {
+  const { formatDate } = useI18n();
   const key = dateKey(date);
 
   const stateClasses = selected
@@ -14,7 +16,7 @@ export default function DayCell({ date, selected, disabled, isToday, title, onSe
     <button
       type="button"
       title={title}
-      aria-label={formatDateHuman(key)}
+      aria-label={formatDate(key)}
       aria-pressed={selected}
       disabled={disabled}
       onClick={() => onSelect(key)}

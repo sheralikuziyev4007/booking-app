@@ -1,4 +1,4 @@
-// Единая кнопка проекта. Варианты и размеры заменяют дублирующиеся строки классов.
+// The project's single button. Variants and sizes replace repeated class strings.
 
 const BASE =
   "inline-flex items-center justify-center gap-2 cursor-pointer select-none transition-colors duration-150 " +

@@ -1,10 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import BrandPanel from "./components/BrandPanel";
 import Header from "./components/Header";
 import Stepper from "./components/Stepper";
 import Calendar from "./components/Calendar";
 import TimeSlotGrid from "./components/TimeSlotGrid";
-import BookingForm from "./components/BookingForm";
 import BookingSummary from "./components/BookingSummary";
 import BookingSuccess from "./components/BookingSuccess";
 import MyBookingsList from "./components/MyBookingsList";
@@ -12,16 +11,23 @@ import StepNavigation from "./components/StepNavigation";
 import StepTransition from "./components/ui/StepTransition";
 import Icon from "./components/ui/Icon";
 import { useBookings } from "./hooks/useBookings";
-import { validateBookingForm } from "./utils/validation";
+import { useI18n } from "./i18n/I18nProvider";
 import { isPastSlot } from "./utils/dateHelpers";
+
+// The contact form and its validation pull in phone-number metadata (~40 kB gzip),
+// so they are split into a separate chunk and preloaded once the user reaches step 2.
+const loadBookingForm = () => import("./components/BookingForm");
+const loadValidation = () => import("./utils/validation");
+const BookingForm = lazy(loadBookingForm);
 
 const EMPTY_FORM = { name: "", phone: "", email: "", guests: 2, comment: "" };
 
 export default function App() {
-  const { bookings, loading, addBooking, cancelBooking, occupancyMap } = useBookings();
+  const { t } = useI18n();
+  const { bookings, loading, addBooking, cancelBooking, findTable } = useBookings();
 
   const [screen, setScreen] = useState("booking"); // booking | mybookings
-  const [step, setStep] = useState(1); // 1..4, 5 = успех
+  const [step, setStep] = useState(1); // 1..4, 5 = success
   const [month, setMonth] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -31,10 +37,18 @@ export default function App() {
   const [selectedTime, setSelectedTime] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
+  // Translation key, so the message switches language together with the UI
   const [stepError, setStepError] = useState("");
   const [lastBooking, setLastBooking] = useState(null);
 
-  const occupiedForSelected = selectedDate ? occupancyMap[selectedDate] || [] : [];
+  const tableSize = selectedDate && selectedTime ? findTable(selectedDate, selectedTime, formData.guests) : null;
+
+  useEffect(() => {
+    if (step >= 2) {
+      loadBookingForm();
+      loadValidation();
+    }
+  }, [step]);
 
   const resetFlow = useCallback(() => {
     setStep(1);
@@ -47,17 +61,24 @@ export default function App() {
     setScreen("booking");
   }, []);
 
-  function goNext() {
+  function changeGuests(guests) {
+    setFormData((f) => ({ ...f, guests }));
+    // A bigger party may not fit at the chosen time any more
+    if (selectedTime && findTable(selectedDate, selectedTime, guests) === null) setSelectedTime(null);
+  }
+
+  async function goNext() {
     setStepError("");
     if (step === 1 && !selectedDate) {
-      setStepError("Пожалуйста, выберите дату.");
+      setStepError("errors.selectDate");
       return;
     }
     if (step === 2 && !selectedTime) {
-      setStepError("Пожалуйста, выберите время.");
+      setStepError("errors.selectTime");
       return;
     }
     if (step === 3) {
+      const { validateBookingForm } = await loadValidation();
       const errs = validateBookingForm(formData);
       setErrors(errs);
       if (Object.keys(errs).length) return;
@@ -71,16 +92,17 @@ export default function App() {
   }
 
   function confirmBooking() {
-    // Пока пользователь заполнял форму, слот мог стать прошедшим или занятым (например, в другой вкладке)
-    if (isPastSlot(selectedDate, selectedTime) || occupiedForSelected.includes(selectedTime)) {
+    // While the form was being filled the slot may have passed or been taken (e.g. in another tab)
+    if (isPastSlot(selectedDate, selectedTime) || tableSize === null) {
       setSelectedTime(null);
       setStep(2);
-      setStepError("Это время уже недоступно. Пожалуйста, выберите другое.");
+      setStepError("errors.slotTaken");
       return;
     }
     const booking = addBooking({
       date: selectedDate,
       time: selectedTime,
+      tableSize,
       name: formData.name.trim(),
       phone: formData.phone.trim(),
       email: formData.email.trim(),
@@ -91,7 +113,7 @@ export default function App() {
     setStep(5);
   }
 
-  const canProceedDisabled = (step === 1 && !selectedDate) || (step === 2 && !selectedTime);
+  const nextDisabled = (step === 1 && !selectedDate) || (step === 2 && !selectedTime);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg font-body text-ink lg:grid lg:grid-cols-[5fr_7fr]">
@@ -105,7 +127,7 @@ export default function App() {
           />
 
           {loading ? (
-            <p className="text-sm text-muted">Загрузка…</p>
+            <p className="text-sm text-muted">{t("loading")}</p>
           ) : screen === "mybookings" ? (
             <MyBookingsList bookings={bookings} onCancel={cancelBooking} onNewBooking={resetFlow} />
           ) : (
@@ -124,22 +146,35 @@ export default function App() {
                         setSelectedTime(null);
                         setStepError("");
                       }}
-                      occupancyMap={occupancyMap}
+                      findTable={findTable}
                     />
                   )}
                   {step === 2 && (
                     <TimeSlotGrid
                       date={selectedDate}
+                      guests={formData.guests}
+                      onGuestsChange={changeGuests}
                       selectedTime={selectedTime}
-                      occupied={occupiedForSelected}
-                      onSelect={(t) => {
-                        setSelectedTime(t);
+                      findTable={findTable}
+                      onSelect={(time) => {
+                        setSelectedTime(time);
                         setStepError("");
                       }}
                     />
                   )}
-                  {step === 3 && <BookingForm formData={formData} setFormData={setFormData} errors={errors} />}
-                  {step === 4 && <BookingSummary date={selectedDate} time={selectedTime} formData={formData} />}
+                  {step === 3 && (
+                    <Suspense fallback={<p className="text-sm text-muted">{t("loading")}</p>}>
+                      <BookingForm
+                        formData={formData}
+                        setFormData={setFormData}
+                        errors={errors}
+                        onClearError={(field) => setErrors(({ [field]: _removed, ...rest }) => rest)}
+                      />
+                    </Suspense>
+                  )}
+                  {step === 4 && (
+                    <BookingSummary date={selectedDate} time={selectedTime} tableSize={tableSize} formData={formData} />
+                  )}
                   {step === 5 && lastBooking && (
                     <BookingSuccess
                       booking={lastBooking}
@@ -153,14 +188,14 @@ export default function App() {
               {stepError && (
                 <p role="alert" className="mt-2 flex items-start gap-2 text-sm text-danger">
                   <Icon name="alert" size={16} className="mt-0.5 shrink-0" />
-                  <span>{stepError}</span>
+                  <span>{t(stepError)}</span>
                 </p>
               )}
 
               {step < 5 && (
                 <StepNavigation
                   step={step}
-                  nextDisabled={canProceedDisabled}
+                  nextDisabled={nextDisabled}
                   onBack={goBack}
                   onNext={goNext}
                   onConfirm={confirmBooking}

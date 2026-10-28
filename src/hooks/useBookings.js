@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { genBookingNumber } from "../utils/dateHelpers";
+import { findFreeTable } from "../utils/tables";
 
 const STORAGE_KEY = "atlas-restaurant-bookings";
 
-// CRUD-логика броней поверх localStorage
+// Bookings CRUD on top of localStorage + table availability queries
 export function useBookings() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,10 +13,10 @@ export function useBookings() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
-      // Защита от повреждённых данных: ожидаем массив
+      // Guard against corrupted data: an array is expected
       setBookings(Array.isArray(parsed) ? parsed : []);
     } catch (e) {
-      console.error("Не удалось загрузить брони из localStorage", e);
+      console.error("Failed to load bookings from localStorage", e);
       setBookings([]);
     } finally {
       setLoading(false);
@@ -27,17 +28,18 @@ export function useBookings() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
     } catch (e) {
-      console.error("Не удалось сохранить брони в localStorage", e);
+      console.error("Failed to save bookings to localStorage", e);
     }
   }, []);
 
   const addBooking = useCallback(
-    ({ date, time, name, phone, email, guests, comment }) => {
+    ({ date, time, tableSize, name, phone, email, guests, comment }) => {
       const booking = {
         id: `${Date.now()}`,
         number: genBookingNumber(),
         date,
         time,
+        tableSize,
         name,
         phone,
         email,
@@ -59,16 +61,8 @@ export function useBookings() {
     [bookings, persist]
   );
 
-  // Карта занятых слотов по датам: { "2026-08-20": ["12:00", "12:30"] }
-  const occupancyMap = useMemo(() => {
-    const map = {};
-    bookings.forEach((b) => {
-      if (b.status === "cancelled") return;
-      if (!map[b.date]) map[b.date] = [];
-      map[b.date].push(b.time);
-    });
-    return map;
-  }, [bookings]);
+  // Seat count of the table that would be assigned, or null if the slot is full for this party
+  const findTable = useCallback((date, time, guests) => findFreeTable(bookings, date, time, guests), [bookings]);
 
-  return { bookings, loading, addBooking, cancelBooking, occupancyMap };
+  return { bookings, loading, addBooking, cancelBooking, findTable };
 }

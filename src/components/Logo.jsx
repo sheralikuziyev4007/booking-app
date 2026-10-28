@@ -1,4 +1,4 @@
-// Знак ресторана: буква «А» в рамке (совпадает с favicon).
+// Restaurant mark: framed letter "A" (same as the favicon).
 
 export default function Logo({ size = 44, className = "" }) {
   return (

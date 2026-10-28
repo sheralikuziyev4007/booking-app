@@ -1,4 +1,4 @@
-// Плавное появление содержимого шага. key пересоздаёт блок при смене шага — анимация играет заново.
+// Smooth step entrance. Changing `key` remounts the block, so the animation replays on every step.
 
 export default function StepTransition({ stepKey, children }) {
   return (

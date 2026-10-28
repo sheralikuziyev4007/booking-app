@@ -1,21 +1,11 @@
-// Вспомогательные функции для работы с датами
-
-export const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-export const MONTHS = [
-  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
-];
-
-// Родительный падеж — для дат вида «23 сентября»
-export const MONTHS_GENITIVE = [
-  "января", "февраля", "марта", "апреля", "мая", "июня",
-  "июля", "августа", "сентября", "октября", "ноября", "декабря",
-];
+// Date helpers. Language-specific formatting lives in src/i18n.
+import { RESTAURANT } from "../config/restaurant";
 
 export function pad(n) {
   return String(n).padStart(2, "0");
 }
 
+// Local date → "YYYY-MM-DD" (no UTC shift, unlike toISOString)
 export function dateKey(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
@@ -24,26 +14,18 @@ export function sameDay(a, b) {
   return dateKey(a) === dateKey(b);
 }
 
-// Понедельник — выходной день ресторана
+// Restaurant's day off (Monday by default, see config)
 export function isClosed(d) {
-  return d.getDay() === 1;
+  return d.getDay() === RESTAURANT.closedWeekday;
 }
 
-// Слот уже прошёл (актуально для сегодняшней даты).
-// Строка вида "2026-09-23T14:30" без часового пояса трактуется как локальное время.
+// The slot has already started. "2026-09-23T14:30" without a timezone is parsed as local time.
 export function isPastSlot(dateStr, time, now = new Date()) {
   return new Date(`${dateStr}T${time}`) <= now;
 }
 
-export function formatDateHuman(dateStr) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  const days = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
-  return `${d} ${MONTHS_GENITIVE[m - 1]}, ${days[dt.getDay()]}`;
-}
-
-export function genBookingNumber() {
+// "AT-20260924-4821": prefix, booking day, random part
+export function genBookingNumber(now = new Date()) {
   const rnd = Math.floor(1000 + Math.random() * 9000);
-  const d = new Date();
-  return `АТ-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${rnd}`;
+  return `AT-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${rnd}`;
 }

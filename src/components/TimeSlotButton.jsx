@@ -1,5 +1,8 @@
-// Кнопка одного временного слота (например, «18:30»).
+import { useI18n } from "../i18n/I18nProvider";
+
+// One seating time button ("6:30 PM" / «18:30»). `time` stays in 24h "HH:MM" internally.
 export default function TimeSlotButton({ time, selected, disabled, onSelect }) {
+  const { formatTime } = useI18n();
   const stateClasses = selected
     ? "bg-gold border-gold text-[#1B1405] font-semibold"
     : disabled
@@ -12,11 +15,11 @@ export default function TimeSlotButton({ time, selected, disabled, onSelect }) {
       disabled={disabled}
       aria-pressed={selected}
       onClick={() => onSelect(time)}
-      className={`rounded-xl border py-2 text-sm tabular-nums transition-colors
+      className={`whitespace-nowrap rounded-xl border px-1 py-2 text-sm tabular-nums transition-colors
         focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold
         ${stateClasses}`}
     >
-      {time}
+      {formatTime(time)}
     </button>
   );
 }

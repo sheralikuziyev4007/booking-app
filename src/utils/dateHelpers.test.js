@@ -1,51 +1,46 @@
 import { describe, it, expect } from "vitest";
-import { dateKey, isClosed, isPastSlot, formatDateHuman, genBookingNumber } from "./dateHelpers";
+import { dateKey, isClosed, isPastSlot, genBookingNumber } from "./dateHelpers";
 
 describe("dateKey", () => {
-  it("форматирует дату как YYYY-MM-DD с ведущими нулями", () => {
+  it("formats a date as YYYY-MM-DD with leading zeros", () => {
     expect(dateKey(new Date(2026, 0, 5))).toBe("2026-01-05");
     expect(dateKey(new Date(2026, 11, 31))).toBe("2026-12-31");
   });
 });
 
 describe("isClosed", () => {
-  it("понедельник — выходной", () => {
-    expect(isClosed(new Date(2026, 8, 21))).toBe(true); // 21 сентября 2026 — понедельник
+  it("Monday is the day off", () => {
+    expect(isClosed(new Date(2026, 8, 21))).toBe(true); // Mon, Sep 21 2026
   });
-  it("остальные дни рабочие", () => {
+  it("other days are open", () => {
     expect(isClosed(new Date(2026, 8, 22))).toBe(false);
-    expect(isClosed(new Date(2026, 8, 27))).toBe(false); // воскресенье
+    expect(isClosed(new Date(2026, 8, 27))).toBe(false); // Sunday
   });
 });
 
 describe("isPastSlot", () => {
-  const now = new Date(2026, 8, 23, 14, 0); // 23.09.2026, 14:00
+  const now = new Date(2026, 8, 23, 14, 0); // Sep 23 2026, 14:00
 
-  it("прошедшее время сегодня — прошло", () => {
+  it("earlier today has passed", () => {
     expect(isPastSlot("2026-09-23", "12:30", now)).toBe(true);
   });
-  it("ровно текущее время считается прошедшим", () => {
+  it("the current minute counts as passed", () => {
     expect(isPastSlot("2026-09-23", "14:00", now)).toBe(true);
   });
-  it("будущее время сегодня — доступно", () => {
+  it("later today is available", () => {
     expect(isPastSlot("2026-09-23", "14:30", now)).toBe(false);
   });
-  it("любое время завтра — доступно", () => {
+  it("any time tomorrow is available", () => {
     expect(isPastSlot("2026-09-24", "12:00", now)).toBe(false);
   });
-  it("любое время вчера — прошло", () => {
+  it("any time yesterday has passed", () => {
     expect(isPastSlot("2026-09-22", "22:00", now)).toBe(true);
   });
 });
 
-describe("formatDateHuman", () => {
-  it("выводит число, месяц и день недели по-русски", () => {
-    expect(formatDateHuman("2026-09-23")).toBe("23 сентября, среда");
-  });
-});
-
 describe("genBookingNumber", () => {
-  it("имеет формат АТ-ГГГГММДД-NNNN", () => {
-    expect(genBookingNumber()).toMatch(/^АТ-\d{8}-\d{4}$/);
+  it("has the AT-YYYYMMDD-NNNN format", () => {
+    expect(genBookingNumber()).toMatch(/^AT-\d{8}-\d{4}$/);
+    expect(genBookingNumber(new Date(2026, 8, 24))).toMatch(/^AT-20260924-\d{4}$/);
   });
 });

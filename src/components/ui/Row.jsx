@@ -1,4 +1,4 @@
-// Строка «подпись — значение» для карточек проверки и подтверждения брони.
+// "Label — value" row for the review and confirmation cards.
 
 export default function Row({ label, value }) {
   return (
