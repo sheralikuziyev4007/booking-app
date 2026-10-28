@@ -1,15 +1,21 @@
 import Button from "./ui/Button";
+import Icon from "./ui/Icon";
 import BookingCard from "./BookingCard";
 import { useI18n } from "../i18n/I18nProvider";
 
-export default function MyBookingsList({ bookings, onCancel, onNewBooking }) {
+export default function MyBookingsList({ bookings, onCancel, onNewBooking, onBack }) {
   const { t } = useI18n();
   const sorted = [...bookings].sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
 
   return (
     <div className="animate-step-in">
       <div className="mb-3 flex items-center justify-between gap-4">
-        <h2 className="m-0 font-display text-[30px] font-semibold leading-[1.05] text-ink">{t("list.title")}</h2>
+        <div className="flex items-center gap-3">
+          <Button variant="icon" size="icon" aria-label={t("nav.back")} onClick={onBack}>
+            <Icon name="chevronLeft" />
+          </Button>
+          <h2 className="m-0 font-display text-[30px] font-semibold leading-[1.05] text-ink">{t("list.title")}</h2>
+        </div>
         <Button onClick={onNewBooking}>{t("list.newBooking")}</Button>
       </div>
 

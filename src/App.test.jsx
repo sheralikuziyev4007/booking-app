@@ -1,7 +1,7 @@
 // Integration test: the whole booking flow in jsdom (clock frozen at Wed, Sep 23 2026, 14:00)
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import App from "./App";
 import { I18nProvider } from "./i18n/I18nProvider";
 
@@ -175,7 +175,7 @@ describe("booking flow", () => {
     setNow(2026, 8, 23, 15, 10); // the slot has started
     click(btn("Confirm booking"));
 
-    expect(screen.getByText("This time is no longer available. Please choose another one.")).toBeTruthy();
+    expect(await screen.findByText("This time is no longer available. Please choose another one.")).toBeTruthy();
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     expect(btn("3:00 PM").disabled).toBe(true);
   });
@@ -186,13 +186,71 @@ describe("booking flow", () => {
     expect(screen.getByText("September 2026")).toBeTruthy();
   });
 
-  it("Back returns to the previous step and keeps the selection", () => {
+  it("Back returns to the previous step and keeps the selection", async () => {
     renderApp();
     click(btn("Thursday, September 24"));
     click(btn("Next"));
     click(btn("1:00 PM"));
     click(btn("Back"));
-    expect(btn("Thursday, September 24").getAttribute("aria-pressed")).toBe("true");
+    expect((await screen.findByRole("button", { name: "Thursday, September 24" })).getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("browser history", () => {
+  it("the browser Back and Forward buttons move between steps", async () => {
+    renderApp();
+    click(btn("Thursday, September 24"));
+    click(btn("Next"));
+    click(btn("1:00 PM"));
+    click(btn("Next"));
+    await screen.findByLabelText("Name");
+
+    window.history.back();
+    expect((await screen.findByRole("button", { name: "1:00 PM" })).getAttribute("aria-pressed")).toBe("true");
+
+    window.history.back();
+    expect(await screen.findByText("September 2026")).toBeTruthy();
+
+    window.history.forward();
+    expect(await screen.findByText("Thursday, September 24")).toBeTruthy(); // time step heading
+  });
+
+  it("Forward cannot skip a step whose data is missing", async () => {
+    renderApp();
+    click(btn("Thursday, September 24"));
+    click(btn("Next"));
+    click(btn("1:00 PM"));
+    click(btn("Next"));
+    await screen.findByLabelText("Name");
+    click(btn("Next")); // invalid form: stays on step 3
+    window.history.back();
+    await screen.findByRole("button", { name: "1:00 PM" });
+    window.history.back();
+    await screen.findByText("September 2026");
+    click(btn("Friday, September 25")); // new date clears the time
+    window.history.forward();
+    await waitFor(() => expect(screen.getByText("Friday, September 25")).toBeTruthy()); // step 2, not the form
+    expect(screen.queryByLabelText("Name")).toBeNull();
+  });
+
+  it("Back from the confirmation starts a new booking instead of re-opening the old one", async () => {
+    renderApp();
+    await book({ time: "6:30 PM" });
+    window.history.back();
+    expect(await screen.findByText("September 2026")).toBeTruthy();
+    expect(btn("Thursday, September 24").getAttribute("aria-pressed")).toBe("false");
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY))).toHaveLength(1);
+  });
+
+  it("My bookings has a Back button that returns to the booking in progress", async () => {
+    renderApp();
+    click(btn("Thursday, September 24"));
+    click(btn("Next"));
+    click(btn("1:00 PM"));
+    click(btn("My bookings"));
+    expect(screen.getByText("You have no bookings yet.")).toBeTruthy();
+    click(btn("Back"));
+    expect((await screen.findByRole("button", { name: "1:00 PM" })).getAttribute("aria-pressed")).toBe("true");
   });
 });
 

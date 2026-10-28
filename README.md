@@ -17,6 +17,7 @@ A table reservation web app for a restaurant: a step-by-step date and time picke
 - **Four-step flow:** date → party size & time → contact details → review, then a confirmation "ticket" with a booking number.
 - **Table capacity:** the restaurant has a table inventory (2-, 4-, 6- and 10-seat tables). A booking takes the smallest free table that fits the party and holds it for 2 hours. A time slot is disabled only when no table fits for the whole seating, and changing the party size updates the available times instantly.
 - **Calendar rules:** past dates, the day off (Monday) and fully booked days are disabled. For today, past slots are hidden, and after the last seating today is disabled.
+- **Browser history:** every step is a history entry, so the browser's and the phone's Back/Forward buttons move between steps instead of leaving the site. Forward cannot skip a step whose data is missing, and Back from the confirmation starts a fresh booking.
 - **Double-booking guard:** availability is re-checked on confirmation. If the slot has passed or been taken, the user is sent back to choose another time.
 - **International phone input:** numbers from any country are formatted as you type (`+1 212 555 0123`, `+998 90 123 45 67`) and validated with [libphonenumber-js](https://gitlab.com/catamphetamine/libphonenumber-js).
 - **Localization (EN / RU):** a lightweight i18n layer without extra dependencies. It covers plural rules via `Intl.PluralRules`, 12-hour time in English and 24-hour time in Russian, and localized date formats. The chosen language is saved; the first visit uses the browser language.
@@ -88,7 +89,8 @@ src/
 │   ├── MyBookingsList.jsx   // bookings list
 │   └── BookingCard.jsx      // single booking
 ├── hooks/
-│   └── useBookings.js       // bookings CRUD + localStorage + table lookup
+│   ├── useBookings.js       // bookings CRUD + localStorage + table lookup
+│   └── useHistoryNav.js     // steps ↔ browser history (Back/Forward)
 ├── utils/
 │   ├── tables.js            // table assignment and seating overlap
 │   ├── dateHelpers.js       // date keys, day off, past slots, booking number

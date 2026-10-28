@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, lazy, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import BrandPanel from "./components/BrandPanel";
 import Header from "./components/Header";
 import Stepper from "./components/Stepper";
@@ -11,6 +11,7 @@ import StepNavigation from "./components/StepNavigation";
 import StepTransition from "./components/ui/StepTransition";
 import Icon from "./components/ui/Icon";
 import { useBookings } from "./hooks/useBookings";
+import { useHistoryNav } from "./hooks/useHistoryNav";
 import { useI18n } from "./i18n/I18nProvider";
 import { isPastSlot } from "./utils/dateHelpers";
 
@@ -26,8 +27,6 @@ export default function App() {
   const { t } = useI18n();
   const { bookings, loading, addBooking, cancelBooking, findTable } = useBookings();
 
-  const [screen, setScreen] = useState("booking"); // booking | mybookings
-  const [step, setStep] = useState(1); // 1..4, 5 = success
   const [month, setMonth] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -41,6 +40,63 @@ export default function App() {
   const [stepError, setStepError] = useState("");
   const [lastBooking, setLastBooking] = useState(null);
 
+  // Latest values for the history handler, which runs outside React's render cycle
+  const latest = useRef({});
+  latest.current = { selectedDate, selectedTime, formData, lastBooking };
+  // Error to show after a programmatic jump back (set before history.go, read on popstate)
+  const pendingError = useRef("");
+
+  const clearFlow = useCallback(() => {
+    setSelectedDate(null);
+    setSelectedTime(null);
+    setFormData(EMPTY_FORM);
+    setErrors({});
+    setStepError("");
+    setLastBooking(null);
+  }, []);
+
+  // Where a browser Back/Forward press may land, given what the user has filled in so far.
+  // State changes go into `arrive`, so they are applied together with the step change.
+  const resolveHistory = useCallback(
+    async (target) => {
+      const { selectedDate, selectedTime, formData, lastBooking } = latest.current;
+      const error = pendingError.current;
+      pendingError.current = "";
+      const arrive = () => {
+        setStepError(error);
+        if (error === "errors.slotTaken") setSelectedTime(null);
+      };
+
+      if (target.screen === "mybookings") return { ...target, arrive };
+      if (lastBooking) {
+        if (target.step === 5) return { ...target, arrive };
+        // Leaving the confirmation backwards: the booking is done, start a fresh one
+        return { screen: "booking", step: 1, arrive: clearFlow };
+      }
+
+      const maxStep = !selectedDate ? 1 : !selectedTime ? 2 : 4;
+      let step = Math.min(target.step, maxStep);
+      let errs = {};
+      if (step === 4) {
+        const { validateBookingForm } = await loadValidation();
+        errs = validateBookingForm(formData);
+        if (Object.keys(errs).length) step = 3;
+      }
+      return {
+        screen: "booking",
+        step,
+        arrive: () => {
+          arrive();
+          if (Object.keys(errs).length) setErrors(errs);
+        },
+      };
+    },
+    [clearFlow]
+  );
+
+  const { nav, navigate, back } = useHistoryNav(resolveHistory);
+  const { screen, step } = nav;
+
   const tableSize = selectedDate && selectedTime ? findTable(selectedDate, selectedTime, formData.guests) : null;
 
   useEffect(() => {
@@ -51,15 +107,9 @@ export default function App() {
   }, [step]);
 
   const resetFlow = useCallback(() => {
-    setStep(1);
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setFormData(EMPTY_FORM);
-    setErrors({});
-    setStepError("");
-    setLastBooking(null);
-    setScreen("booking");
-  }, []);
+    clearFlow();
+    navigate({ screen: "booking", step: 1 });
+  }, [clearFlow, navigate]);
 
   function changeGuests(guests) {
     setFormData((f) => ({ ...f, guests }));
@@ -83,20 +133,21 @@ export default function App() {
       setErrors(errs);
       if (Object.keys(errs).length) return;
     }
-    setStep((s) => s + 1);
+    navigate({ step: step + 1 });
   }
 
   function goBack() {
     setStepError("");
-    setStep((s) => Math.max(1, s - 1));
+    back();
   }
 
   function confirmBooking() {
     // While the form was being filled the slot may have passed or been taken (e.g. in another tab)
     if (isPastSlot(selectedDate, selectedTime) || tableSize === null) {
-      setSelectedTime(null);
-      setStep(2);
-      setStepError("errors.slotTaken");
+      // Jump back through the history entries of steps 3 and 4 to the time step;
+      // the stale time is cleared there (the review step still needs it until then)
+      pendingError.current = "errors.slotTaken";
+      window.history.go(-2);
       return;
     }
     const booking = addBooking({
@@ -110,7 +161,7 @@ export default function App() {
       comment: formData.comment.trim(),
     });
     setLastBooking(booking);
-    setStep(5);
+    navigate({ step: 5 });
   }
 
   const nextDisabled = (step === 1 && !selectedDate) || (step === 2 && !selectedTime);
@@ -123,13 +174,13 @@ export default function App() {
         <div className="my-auto w-full max-w-[580px]">
           <Header
             showBookingsButton={screen === "booking" && step < 5}
-            onOpenBookings={() => setScreen("mybookings")}
+            onOpenBookings={() => navigate({ screen: "mybookings" })}
           />
 
           {loading ? (
             <p className="text-sm text-muted">{t("loading")}</p>
           ) : screen === "mybookings" ? (
-            <MyBookingsList bookings={bookings} onCancel={cancelBooking} onNewBooking={resetFlow} />
+            <MyBookingsList bookings={bookings} onCancel={cancelBooking} onNewBooking={resetFlow} onBack={back} />
           ) : (
             <>
               {step < 5 && <Stepper step={step} />}
@@ -178,7 +229,7 @@ export default function App() {
                   {step === 5 && lastBooking && (
                     <BookingSuccess
                       booking={lastBooking}
-                      onGoToBookings={() => setScreen("mybookings")}
+                      onGoToBookings={() => navigate({ screen: "mybookings" })}
                       onNewBooking={resetFlow}
                     />
                   )}
